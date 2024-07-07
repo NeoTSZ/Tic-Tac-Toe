@@ -1,317 +1,309 @@
-/*
-Developed by Earl James Williams Aliñgasa (NeoTSZ on GitHub).
+// Created by Earl James Williams Aliñgasa (NeoTSZ on GitHub).
 
-Controls:
-    (W) Up
-    (S) Down
-    (D) Right
-    (A) Left
-    (N) Put X/O
-    (E) Exit
-*/
-
-
-
-//// HEADER FILE lIBRARIES
+// Header file libraries
 #include <stdio.h>
-#include <stdlib.h>
 #include <conio.h>
 
+// Macros to move the cursor
+#define REPOSITION "\x1b[2;2H"
+#define UP "\x1b[1A"
+#define DOWN "\x1b[1B"
+#define RIGHT "\x1b[1C"
+#define LEFT "\x1b[1D"
 
+// Macros to place and remove the cursor
+#define CURSOR SAVE PINK "{" RIGHT "}" LOAD RECOLOR
+#define UNCURSOR SAVE "\xff" RIGHT "\xff" LOAD
 
-//// CONTROL MACROS
-#define CELL_COUNT      9
-#define CSI(SEQ)        "\x1B[" #SEQ    // Control Sequence Introducer
-#define FG(SEQ)         CSI(38;5;) #SEQ // Foreground Color Setter
-#define RESET_STYLE     CSI(0m)
-#define CLEAR_SCREEN    CSI(2J) CSI(H)
+// Macros to control the colors
+#define RECOLOR "\x1b[0m"
+#define RED "\x1b[38;5;9m"
+#define GREEN "\x1b[38;5;10m"
+#define YELLOW "\x1b[38;5;11m"
+#define PINK "\x1b[38;5;13m"
+#define CYAN "\x1b[38;5;14m"
 
-//// COLOR MACROS
-#define RED             FG(1m)
-#define GRN             FG(10m)         // Green
-#define YLW             FG(11m)         // Yellow
-#define PNK             FG(13m)         // Pink
-#define CYN             FG(14m)         // Cyan
+// Macros to save and load cursor positions
+#define SAVE "\x1b[s"
+#define LOAD "\x1b[u"
 
-//// CURSOR MACROS
-#define SHOW_CURSOR     CSI(?25h)
-#define HIDE_CURSOR     CSI(?25l)
-#define RESET_CURSOR    CSI(2;2H)
-#define REMOVE_CURSOR   CSI(s) " " CSI(1C) " " CSI(u)
-#define PLACE_CURSOR    CSI(s) GRN ">" CSI(1C) "<" CSI(u) RESET_STYLE
-#define MOVE_UP         CSI(2A)
-#define MOVE_DOWN       CSI(2B)
-#define MOVE_RIGHT      CSI(4C)
-#define MOVE_LEFT       CSI(4D)
+// Macros to show and hide the cursor
+#define SHOW "\x1b[?25h"
+#define HIDE "\x1b[?25l"
 
-//// TURN-BASED MACROS
-#define PLACE_X         CSI(s) PNK CSI(1C) "X" CSI(u) RESET_STYLE
-#define PLACE_O         CSI(s) YLW CSI(1C) "O" CSI(u) RESET_STYLE
-#define X_TURN          CSI(s) CSI(9;1H) GRN "X's TURN" RESET_STYLE CSI(u)
-#define O_TURN          CSI(s) CSI(9;1H) GRN "O's TURN" RESET_STYLE CSI(u)
-#define X_WIN           CSI(s) CSI(9;1H) GRN "X WINS! " RESET_STYLE CSI(u)
-#define O_WIN           CSI(s) CSI(9;1H) GRN "O WINS! " RESET_STYLE CSI(u)
-#define DRAW            CSI(s) CSI(9;1H) GRN "GAME DRAW!" RESET_STYLE CSI(u)
-#define EXIT_PROMPT     CSI(11;1H) RED "GAME OVER!\n" RESET_STYLE "Press ENTER to close the terminal."
+// Other macros
+#define CLEAR "\x1b[2J\x1b[H"
+#define BUTTON(X,Y) CYAN #X RECOLOR "\xff" #Y "\xff\xff\xff"
 
-//// BOARD MACROS
-#define TOP_BORDER      "\xC9\xCD\xCD\xCD\xD1\xCD\xCD\xCD\xD1\xCD\xCD\xCD\xBB\n"
-#define CELL_LINE       "\xBA\xFF\xFF\xFF\xB3\xFF\xFF\xFF\xB3\xFF\xFF\xFF\xBA\n"
-#define INNER_BORDER    "\xC7\xC4\xC4\xC4\xC5\xC4\xC4\xC4\xC5\xC4\xC4\xC4\xB6\n"
-#define BOTTOM_BORDER   "\xC8\xCD\xCD\xCD\xCF\xCD\xCD\xCD\xCF\xCD\xCD\xCD\xBC\n"
+// Macros to hold the lines of the grid
+#define TOP "\xc9\xcd\xcd\xcd\xd1\xcd\xcd\xcd\xd1\xcd\xcd\xcd\xbb\xff" SAVE "\n"
+#define BOTTOM "\xc8\xcd\xcd\xcd\xcf\xcd\xcd\xcd\xcf\xcd\xcd\xcd\xbc\n"
+#define CELLS "\xba\xff\xff\xff\xb3\xff\xff\xff\xb3\xff\xff\xff\xba\n"
+#define BORDER "\xc7\xc4\xc4\xc4\xc5\xc4\xc4\xc4\xc5\xc4\xc4\xc4\xb6\n"
 
+// Macros for quick printing
+#define GRID CLEAR TOP CELLS BORDER CELLS BORDER CELLS BOTTOM
+#define CONTROLS_A LOAD DOWN SAVE BUTTON([W],Up) BUTTON([S],Down)
+#define CONTROLS_B BUTTON([D],Right) BUTTON([A],Left) LOAD DOWN SAVE
+#define CONTROLS_C BUTTON([N],Place X/O) BUTTON([R],Restart)
+#define CONTROLS_D BUTTON([E],Exit) LOAD DOWN DOWN SAVE
+#define X_TURN SAVE "\x1b[5;15H" RED "X's turn." RECOLOR LOAD
+#define O_TURN SAVE "\x1b[5;15H" RED "O's turn." RECOLOR LOAD
+#define PUT_X SAVE RIGHT GREEN "X" RECOLOR LOAD
+#define PUT_O SAVE RIGHT YELLOW "O" RECOLOR LOAD
+#define X_WIN SAVE "\x1b[5;15H" PINK "X wins!\xff\xff" RECOLOR LOAD
+#define O_WIN SAVE "\x1b[5;15H" PINK "O wins!\xff\xff" RECOLOR LOAD
+#define DRAW SAVE "\x1b[5;15H" PINK "It's a draw!" RECOLOR LOAD
 
-
-//// PROTOTYPES
-void draw_board();
-void process_input(char input, int* cursor, int* turn, int* turnCount, int* cells);
-int move_cursor(int move, int cursor);
-int place_xo(int* cursor, int* turn, int* turnCount, int* cells);
-void check_game_state(int turnCount, int* cells);
-void restart_game(int* cursor, int* turn, int* turnCount, int* cells);
-void end_game();
-
-
-
-int main(void)
+// Structure to hold the state of the game
+typedef struct Game
 {
-    int cursor = 0;
-    int turn = 1;
-    int turnCount = 0;
-    int cells[CELL_COUNT] = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+    int grid[ 9 ];
+    int cursor;
+    int turn;
+    int turnCount;
+}
+Game;
 
-    draw_board();
+// Prototypes
+void initializeGame( Game* game );
+void drawGrid();
+int processInput( char input, Game* game );
+void moveCursor( int move, Game* game );
+void putXO( Game* game );
+int isMatching( int* grid, int value1, int value2, int value3, int turn );
+void checkGame( int turn, Game* game );
 
-    // Looping game
-    while (1)
+int main( void )
+{
+    Game game;
+
+    // Setting up the game and grid
+    initializeGame( &game );
+    drawGrid();
+
+    // Looping the game
+    while ( 1 )
     {
-        if (_kbhit())
+        // Processing user inputs
+        if ( _kbhit() )
         {
-            process_input(getch(), &cursor, &turn, &turnCount, cells);
+            int quitGame = processInput( getch(), &game );
+
+            if ( quitGame )
+            {
+                printf( "\x1b[9;1H" ":: GAME OVER ::\n\n" SHOW );
+                return 0;
+            }
         }
     }
 }
 
-
-
-//// DEFINITIONS
-void draw_board()
+void initializeGame( Game* game )
 {
-    // Clearing screen and printing board
-    printf(CLEAR_SCREEN);
-    printf(TOP_BORDER CELL_LINE INNER_BORDER CELL_LINE INNER_BORDER CELL_LINE BOTTOM_BORDER);
+    // Initializing the cursor and turn indicator
+    // 1: X
+    // 2: O
+    game->cursor = 0;
+    game->turn = 1;
+    game->turnCount = 0;
 
-    // Printing turn information and controls
-    printf(X_TURN);
-    printf(CSI(1;17H) CYN "(W) " RESET_STYLE "Move Up");
-    printf(CSI(2;17H) CYN "(S) " RESET_STYLE "Move Down");
-    printf(CSI(3;17H) CYN "(D) " RESET_STYLE "Move Right");
-    printf(CSI(4;17H) CYN "(A) " RESET_STYLE "Move Left");
-    printf(CSI(5;17H) CYN "(N) " RESET_STYLE "Put X/O");
-    printf(CSI(6;17H) CYN "(R) " RESET_STYLE "Restart Game");
-    printf(CSI(7;17H) CYN "(E) " RESET_STYLE "Exit Game");
-
-    // Resetting cursor
-    printf(RESET_CURSOR PLACE_CURSOR HIDE_CURSOR);
-
-    return;
-}
-
-
-
-void process_input(char input, int* cursor, int* turn, int* turnCount, int* cells)
-{
-    // Processing user input
-    switch (input)
+    // Initializing the cell values
+    for ( int i = 0; i < 9; i ++ )
     {
-
-    case 'w': case 'W': case '5': // Move the cursor up
-        *cursor = move_cursor(5, *cursor);
-        break;
-
-    case 's': case 'S': case '2': // Move the cursor down
-        *cursor = move_cursor(2, *cursor);
-        break;
-
-    case 'd': case 'D': case '3': // Move the cursor right
-        *cursor = move_cursor(3, *cursor);
-        break;
-
-    case 'a': case 'A': case '1': // Move the cursor left
-        *cursor = move_cursor(1, *cursor);
-        break;
-
-    case 'n': case 'N': // Place X/O according to turn
-        if (place_xo(cursor, turn, turnCount, cells))
-        {
-            check_game_state(*turnCount, cells);
-        }
-        break;
-
-    case 'r': case 'R': // Restart the game
-        restart_game(cursor, turn, turnCount, cells);
-        break;
-
-    case 'e': case 'E': // Exit the game
-        end_game();
-        break;
-
+        *(game->grid + i) = 0;
     }
 
     return;
 }
 
-
-
-int move_cursor(int move, int cursor)
+void drawGrid()
 {
-    // Removing cursor
-    printf(REMOVE_CURSOR);
+    // Printing the grid and controls
+    printf( GRID CONTROLS_A CONTROLS_B CONTROLS_C CONTROLS_D X_TURN );
+    printf( REPOSITION HIDE CURSOR );
 
-    // Processing movement
-    switch(move)
-    {
-    case 5: // Move up
-        if (cursor > 2)
-        {
-            cursor -= 3;
-            printf(MOVE_UP);
-        }
-        break;
-    case 2: // Move down
-        if (cursor < 6)
-        {
-            cursor += 3;
-            printf(MOVE_DOWN);
-        }
-        break;
-    case 3: // Move right
-        if (cursor % 3 != 2)
-        {
-            cursor ++;
-            printf(MOVE_RIGHT);
-        }
-        break;
-    case 1: // Move left
-        if (cursor % 3 != 0)
-        {
-            cursor --;
-            printf(MOVE_LEFT);
-        }
-        break;
-    }
-
-    // Placing cursor back
-    printf(PLACE_CURSOR);
-
-    return cursor;
+    return;
 }
 
-
-
-int place_xo(int* cursor, int* turn, int* turnCount, int* cells)
+int processInput( char input, Game* game )
 {
-    // Checking if the current cell is occupied
-    if (*(cells + *cursor))
+    // This function returns 1 if the user ends the game
+
+    switch ( input )
     {
-        return 0;
+        // Moving the cursor up
+        case 'w': case 'W': case '5':
+            moveCursor( 5, game );
+            break;
+
+        // Moving the cursor down
+        case 's': case 'S': case '2':
+            moveCursor( 2, game );
+            break;
+
+        // Moving the cursor right
+        case 'd': case 'D': case '3':
+            moveCursor( 3, game );
+            break;
+
+        // Moving the cursor left
+        case 'a': case 'A': case '1':
+            moveCursor( 1, game );
+            break;
+
+        // Placing X/O
+        case 'n': case 'N':
+            putXO( game );
+            break;
+
+        // Restarting the game
+        case 'r': case 'R':
+            initializeGame( game );
+            drawGrid();
+            break;
+
+        // Exiting the game
+        case 'e': case 'E':
+            return 1;
     }
 
-    // Proceeding if the current cell is empty
-    *turnCount += 1;
-    if (*turn == 1)
+    return 0;
+}
+
+void moveCursor( int move, Game* game )
+{
+    int temp = game->cursor;
+
+    // Updating the location of the cursor
+    switch ( move )
     {
-        // X's turn
-        *(cells + *cursor) = 1;
-        *turn = 2;
-        printf(PLACE_X);
-        printf(O_TURN);
+        // Moving the cursor up
+        case 5:
+            if ( temp > 2 )
+            {
+                temp -= 3;
+                printf( UNCURSOR UP UP CURSOR );
+            }
+            break;
+
+        // Moving the cursor down
+        case 2:
+            if ( temp < 6 )
+            {
+                temp += 3;
+                printf( UNCURSOR DOWN DOWN CURSOR );
+            }
+            break;
+
+        // Moving the cursor right
+        case 3:
+            if ( temp % 3 != 2 )
+            {
+                temp ++;
+                printf( UNCURSOR RIGHT RIGHT RIGHT RIGHT CURSOR );
+            }
+            break;
+
+        // Moving the cursor left
+        case 1:
+            if ( temp % 3 != 0 )
+            {
+                temp --;
+                printf( UNCURSOR LEFT LEFT LEFT LEFT CURSOR );
+            }
+            break;
+    }
+
+    game->cursor = temp;
+
+    return;
+}
+
+void putXO( Game* game )
+{
+    // Checking if the cursor's cell is occupied
+    if ( *(game->grid + game->cursor) )
+    {
+        return;
+    }
+
+    // Proceeding if empty
+    game->turnCount += 1;
+    if ( game->turn == 1 )
+    {
+        *(game->grid + game->cursor) = 1;
+        printf( PUT_X O_TURN );
+        game->turn = 2;
+        checkGame( 1, game );
     }
     else
     {
-        // O's turn
-        *(cells + *cursor) = 2;
-        *turn = 1;
-        printf(PLACE_O);
-        printf(X_TURN);
+        *(game->grid + game->cursor) = 2;
+        printf( PUT_O X_TURN );
+        game->turn = 1;
+        checkGame( 2, game );
     }
 
-    return 1;
+    return;
 }
 
-
-
-void check_game_state(int turnCount, int* cells)
+int isMatching( int* grid, int value1, int value2, int value3, int turn )
 {
-    int winFlag = 0;
-
-    // Checking both X and O for win states
-    for (int turn = 1; turn < 3; turn ++)
+    if ( ( *(grid + value1) == turn ) && ( *(grid + value2) == turn ) && ( *(grid + value3) == turn ) )
     {
-        if (
-            (*(cells + 0) == turn && *(cells + 1) == turn && *(cells + 2) == turn) ||
-            (*(cells + 3) == turn && *(cells + 4) == turn && *(cells + 5) == turn) ||
-            (*(cells + 6) == turn && *(cells + 7) == turn && *(cells + 8) == turn) ||
-            (*(cells + 0) == turn && *(cells + 3) == turn && *(cells + 6) == turn) ||
-            (*(cells + 1) == turn && *(cells + 4) == turn && *(cells + 7) == turn) ||
-            (*(cells + 2) == turn && *(cells + 5) == turn && *(cells + 8) == turn) ||
-            (*(cells + 0) == turn && *(cells + 4) == turn && *(cells + 8) == turn) ||
-            (*(cells + 2) == turn && *(cells + 4) == turn && *(cells + 6) == turn)
-        )
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
+void checkGame( int turn, Game* game )
+{
+    int* g = game->grid;
+
+    // Checking for matching X/O patterns
+    if (
+        /* Checking the rows */
+        isMatching( g, 0, 1, 2, turn ) ||
+        isMatching( g, 3, 4, 5, turn ) ||
+        isMatching( g, 6, 7, 8, turn ) ||
+
+        /* Checking the columns */
+        isMatching( g, 0, 3, 6, turn ) ||
+        isMatching( g, 1, 4, 7, turn ) ||
+        isMatching( g, 2, 5, 8, turn ) ||
+
+        /* Checking the diagonals */
+        isMatching( g, 0, 4, 8, turn ) ||
+        isMatching( g, 2, 4, 6, turn )
+    )
+    {
+        if ( turn == 1 )
         {
-            winFlag = turn;
-            break;
+            printf( X_WIN );
         }
+        else
+        {
+            printf( O_WIN );
+        }
+
+        // Blocking all remaining empty cells
+        for ( int i = 0; i < 9; i ++ )
+        {
+            *(game->grid + i) += ( *(game->grid + i) ) ? 0 : 3;
+        }
+
+        return;
     }
 
-    // Processing game state
-    if (winFlag == 1)
+    // Checking the draw condition
+    if ( game->turnCount == 9 )
     {
-        printf(X_WIN);
-        end_game();
-    }
-    else if (winFlag == 2)
-    {
-        printf(O_WIN);
-        end_game();
-    }
-    else if (turnCount == 9)
-    {
-        printf(DRAW);
-        end_game();
+        printf( DRAW );
     }
 
     return;
-}
-
-
-
-void restart_game(int* cursor,int* turn,int* turnCount,int* cells)
-{
-    // Drawing empty board
-    draw_board();
-
-    // Resetting variables
-    *cursor = 0;
-    *turn = 1;
-    *turnCount = 0;
-
-    // Resetting cells
-    for (int i = 0; i < CELL_COUNT; i ++)
-    {
-        *(cells + i) = 0;
-    }
-
-    return;
-}
-
-
-
-void end_game()
-{
-    fflush(stdin);
-    printf(EXIT_PROMPT);
-    getchar();
-    printf(CSI(13;1H) SHOW_CURSOR);
-    exit(0);
 }
